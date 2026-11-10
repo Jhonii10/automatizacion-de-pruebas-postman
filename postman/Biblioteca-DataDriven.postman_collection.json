@@ -1,0 +1,94 @@
+{
+  "info": {
+    "name": "Biblioteca API - Validaciones (data-driven)",
+    "description": "Ejecutar con el archivo postman/data/libros-validaciones.csv (npm run test:data).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-KEY",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Crear libro (data-driven)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Si el CSV indica AUTO, se genera un ISBN único de 13 dígitos por iteración",
+              "const isbn = pm.iterationData.get('isbn');",
+              "const generado = '976' + Date.now().toString().slice(-7) + String(pm.info.iteration).padStart(3, '0');",
+              "pm.variables.set('isbnCaso', isbn === 'AUTO' ? generado : isbn);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const caso = pm.iterationData.get('caso');",
+              "const esperado = Number(pm.iterationData.get('status'));",
+              "const campo = pm.iterationData.get('campo');",
+              "",
+              "pm.test(`${caso}: status ${esperado}`, () => pm.response.to.have.status(esperado));",
+              "if (campo) {",
+              "  pm.test(`${caso}: error reportado en '${campo}'`, () => {",
+              "    pm.expect(pm.response.json().campos).to.have.property(campo);",
+              "  });",
+              "} else {",
+              "  pm.test(`${caso}: libro creado con id`, () => pm.expect(pm.response.json().id).to.be.a('number'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/libros",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "libros"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"isbn\": \"{{isbnCaso}}\",\n  \"titulo\": \"{{titulo}}\",\n  \"autor\": \"{{autor}}\",\n  \"anio\": {{anio}},\n  \"ejemplares\": {{ejemplares}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

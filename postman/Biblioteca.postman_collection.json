@@ -1,0 +1,1047 @@
+{
+  "info": {
+    "name": "Biblioteca API - Pruebas funcionales",
+    "description": "Taller grupal U2. Ejecutar en orden con el Collection Runner o con Newman (npm run test:api).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-KEY",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Validaciones comunes, se ejecutan después de cada petición de la colección",
+          "pm.test('[común] Tiempo de respuesta < 1000 ms', () => {",
+          "  pm.expect(pm.response.responseTime).to.be.below(1000);",
+          "});",
+          "if (pm.response.code !== 204) {",
+          "  pm.test('[común] Respuesta en formato JSON', () => {",
+          "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Salud",
+      "item": [
+        {
+          "name": "Verificar salud del servicio",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Identificador único de la corrida: hace la colección repetible sin reiniciar la API",
+                  "const runId = Date.now().toString();",
+                  "pm.collectionVariables.set('runId', runId);",
+                  "pm.collectionVariables.set('usuario', 'usuario-' + runId);",
+                  "pm.collectionVariables.set('usuarioLimite', 'lector-' + runId);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Servicio UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Seguridad",
+      "item": [
+        {
+          "name": "Sin API key retorna 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Mensaje indica API key', () => pm.expect(pm.response.json().mensaje).to.include('API key'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "API key inválida retorna 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros"
+              ]
+            },
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-KEY",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "clave-incorrecta",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Libros",
+      "item": [
+        {
+          "name": "Crear libro válido",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ISBN de 13 dígitos único por corrida",
+                  "pm.collectionVariables.set('isbn', '978' + pm.collectionVariables.get('runId').slice(-10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const schemaLibro = {",
+                  "  type: 'object',",
+                  "  required: ['id', 'isbn', 'titulo', 'autor', 'anio', 'ejemplares', 'disponibles'],",
+                  "  properties: {",
+                  "    id: { type: 'integer', minimum: 1 },",
+                  "    isbn: { type: 'string', pattern: '^\\\\d{13}$' },",
+                  "    titulo: { type: 'string', minLength: 1 },",
+                  "    autor: { type: 'string', minLength: 1 },",
+                  "    anio: { type: 'integer' },",
+                  "    ejemplares: { type: 'integer', minimum: 0 },",
+                  "    disponibles: { type: 'integer', minimum: 0 }",
+                  "  }",
+                  "};",
+                  "pm.collectionVariables.set('schemaLibro', JSON.stringify(schemaLibro));",
+                  "",
+                  "const libro = pm.response.json();",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Cabecera Location apunta al recurso', () => {",
+                  "  pm.expect(pm.response.headers.get('Location')).to.eql('/api/libros/' + libro.id);",
+                  "});",
+                  "pm.test('Cumple el esquema JSON de Libro', () => pm.response.to.have.jsonSchema(schemaLibro));",
+                  "pm.test('Disponibles = ejemplares al crear', () => pm.expect(libro.disponibles).to.eql(libro.ejemplares));",
+                  "pm.test('ISBN coincide con el enviado', () => pm.expect(libro.isbn).to.eql(pm.collectionVariables.get('isbn')));",
+                  "pm.collectionVariables.set('libroId', libro.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{isbn}}\",\n  \"titulo\": \"Pruebas de Software en la Práctica\",\n  \"autor\": \"Grupo QA {{runId}}\",\n  \"anio\": 2024,\n  \"ejemplares\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar libro por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const schemaLibro = JSON.parse(pm.collectionVariables.get('schemaLibro'));",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Cumple el esquema JSON de Libro', () => pm.response.to.have.jsonSchema(schemaLibro));",
+                  "pm.test('Es el libro creado', () => pm.expect(pm.response.json().isbn).to.eql(pm.collectionVariables.get('isbn')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros/{{libroId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros",
+                "{{libroId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar libros por autor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const lista = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('El filtro retorna solo el libro del grupo', () => {",
+                  "  pm.expect(lista).to.be.an('array').with.lengthOf(1);",
+                  "  pm.expect(lista[0].id).to.eql(Number(pm.collectionVariables.get('libroId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros?autor=Grupo QA {{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros"
+              ],
+              "query": [
+                {
+                  "key": "autor",
+                  "value": "Grupo QA {{runId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "ISBN duplicado retorna 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('Señala el campo isbn', () => pm.expect(pm.response.json().campos).to.have.property('isbn'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{isbn}}\",\n  \"titulo\": \"Copia con mismo ISBN\",\n  \"autor\": \"Otro Autor\",\n  \"anio\": 2024,\n  \"ejemplares\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Datos inválidos retornan 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Reporta error en los 5 campos', () => {",
+                  "  pm.expect(pm.response.json().campos).to.have.all.keys('isbn', 'titulo', 'autor', 'anio', 'ejemplares');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"123\",\n  \"titulo\": \"\",\n  \"autor\": \"\",\n  \"anio\": 1300,\n  \"ejemplares\": -1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Libro inexistente retorna 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('Mensaje identifica el id', () => pm.expect(pm.response.json().mensaje).to.include('999999'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros",
+                "999999"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Préstamos",
+      "item": [
+        {
+          "name": "Crear libro con 1 ejemplar",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('isbnUnico', '979' + pm.collectionVariables.get('runId').slice(-10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('libroUnicoId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{isbnUnico}}\",\n  \"titulo\": \"Libro de ejemplar único\",\n  \"autor\": \"Grupo QA\",\n  \"anio\": 2024,\n  \"ejemplares\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Prestar libro disponible",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Verificación cruzada: consulta el libro para confirmar el stock",
+                  "function verificarDisponibles(libroId, esperado, nombre) {",
+                  "  pm.sendRequest({",
+                  "    url: pm.variables.get('baseUrl') + '/api/libros/' + libroId,",
+                  "    method: 'GET',",
+                  "    header: { 'X-API-KEY': pm.variables.get('apiKey') }",
+                  "  }, (err, res) => {",
+                  "    pm.test(nombre, () => {",
+                  "      pm.expect(err).to.be.null;",
+                  "      pm.expect(res.json().disponibles).to.eql(esperado);",
+                  "    });",
+                  "  });",
+                  "}",
+                  "",
+                  "const p = pm.response.json();",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Préstamo queda ACTIVO y sin fecha de devolución', () => {",
+                  "  pm.expect(p.estado).to.eql('ACTIVO');",
+                  "  pm.expect(p.fechaDevolucion).to.be.null;",
+                  "});",
+                  "pm.test('Fecha límite = fecha de préstamo + 14 días', () => {",
+                  "  const dias = (new Date(p.fechaLimite) - new Date(p.fechaPrestamo)) / 86400000;",
+                  "  pm.expect(dias).to.eql(14);",
+                  "});",
+                  "pm.collectionVariables.set('prestamoId', p.id);",
+                  "verificarDisponibles(p.libroId, 0, 'Stock del libro bajó a 0');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libroId\": {{libroUnicoId}},\n  \"usuario\": \"{{usuario}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Prestar sin ejemplares retorna 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje indica falta de ejemplares', () => pm.expect(pm.response.json().mensaje).to.include('Sin ejemplares'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libroId\": {{libroUnicoId}},\n  \"usuario\": \"{{usuario}}-b\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Devolver préstamo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Verificación cruzada: consulta el libro para confirmar el stock",
+                  "function verificarDisponibles(libroId, esperado, nombre) {",
+                  "  pm.sendRequest({",
+                  "    url: pm.variables.get('baseUrl') + '/api/libros/' + libroId,",
+                  "    method: 'GET',",
+                  "    header: { 'X-API-KEY': pm.variables.get('apiKey') }",
+                  "  }, (err, res) => {",
+                  "    pm.test(nombre, () => {",
+                  "      pm.expect(err).to.be.null;",
+                  "      pm.expect(res.json().disponibles).to.eql(esperado);",
+                  "    });",
+                  "  });",
+                  "}",
+                  "",
+                  "const p = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Estado DEVUELTO con fecha de devolución', () => {",
+                  "  pm.expect(p.estado).to.eql('DEVUELTO');",
+                  "  pm.expect(p.fechaDevolucion).to.not.be.null;",
+                  "});",
+                  "verificarDisponibles(p.libroId, 1, 'Stock del libro se repuso a 1');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos/{{prestamoId}}/devolucion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos",
+                "{{prestamoId}}",
+                "devolucion"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Devolver dos veces retorna 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje indica que ya fue devuelto', () => pm.expect(pm.response.json().mensaje).to.include('ya fue devuelto'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos/{{prestamoId}}/devolucion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos",
+                "{{prestamoId}}",
+                "devolucion"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear libro con 5 ejemplares",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('isbnMulti', '977' + pm.collectionVariables.get('runId').slice(-10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('libroMultiId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/libros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "libros"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{isbnMulti}}\",\n  \"titulo\": \"Libro de alta demanda\",\n  \"autor\": \"Grupo QA\",\n  \"anio\": 2024,\n  \"ejemplares\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Préstamo 1 de 3 del mismo usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created (préstamo 1)', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libroId\": {{libroMultiId}},\n  \"usuario\": \"{{usuarioLimite}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Préstamo 2 de 3 del mismo usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created (préstamo 2)', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libroId\": {{libroMultiId}},\n  \"usuario\": \"{{usuarioLimite}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Préstamo 3 de 3 del mismo usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created (préstamo 3)', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libroId\": {{libroMultiId}},\n  \"usuario\": \"{{usuarioLimite}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cuarto préstamo excede el límite (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Mensaje indica el máximo de 3', () => pm.expect(pm.response.json().mensaje).to.include('máximo de 3'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libroId\": {{libroMultiId}},\n  \"usuario\": \"{{usuarioLimite}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar préstamos del usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const lista = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('El usuario tiene exactamente 3 préstamos activos', () => {",
+                  "  pm.expect(lista).to.have.lengthOf(3);",
+                  "  lista.forEach(p => pm.expect(p.estado).to.eql('ACTIVO'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos?usuario={{usuarioLimite}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos"
+              ],
+              "query": [
+                {
+                  "key": "usuario",
+                  "value": "{{usuarioLimite}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Préstamo de libro inexistente retorna 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libroId\": 999999,\n  \"usuario\": \"{{usuario}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "usuario",
+      "value": ""
+    },
+    {
+      "key": "usuarioLimite",
+      "value": ""
+    },
+    {
+      "key": "isbn",
+      "value": ""
+    },
+    {
+      "key": "isbnUnico",
+      "value": ""
+    },
+    {
+      "key": "isbnMulti",
+      "value": ""
+    },
+    {
+      "key": "libroId",
+      "value": ""
+    },
+    {
+      "key": "libroUnicoId",
+      "value": ""
+    },
+    {
+      "key": "libroMultiId",
+      "value": ""
+    },
+    {
+      "key": "prestamoId",
+      "value": ""
+    },
+    {
+      "key": "schemaLibro",
+      "value": ""
+    }
+  ]
+}

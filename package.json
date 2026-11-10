@@ -1,0 +1,15 @@
+{
+  "name": "biblioteca-api-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pruebas automatizadas de la API de biblioteca con Postman + Newman",
+  "scripts": {
+    "test:api": "newman run postman/Biblioteca.postman_collection.json -e postman/local.postman_environment.json -r cli,htmlextra --reporter-htmlextra-export reports/biblioteca.html --reporter-htmlextra-title \"Biblioteca API - Pruebas funcionales\"",
+    "test:data": "newman run postman/Biblioteca-DataDriven.postman_collection.json -e postman/local.postman_environment.json -d postman/data/libros-validaciones.csv -r cli,htmlextra --reporter-htmlextra-export reports/data-driven.html --reporter-htmlextra-title \"Biblioteca API - Validaciones data-driven\"",
+    "test": "npm run test:api && npm run test:data"
+  },
+  "devDependencies": {
+    "newman": "^6.2.1",
+    "newman-reporter-htmlextra": "^1.23.1"
+  }
+}

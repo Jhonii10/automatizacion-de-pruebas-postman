@@ -1,0 +1,10 @@
+caso,isbn,titulo,autor,anio,ejemplares,status,campo
+Libro válido,AUTO,Testing Ágil,Lisa Crispin,2009,4,201,
+Libro con 0 ejemplares,AUTO,Catálogo histórico,Autor Anónimo,1999,0,201,
+ISBN de 12 dígitos,978013235088,Título de prueba,Autor de prueba,2010,1,400,isbn
+ISBN con letras,97801323508AB,Título de prueba,Autor de prueba,2010,1,400,isbn
+Título vacío,AUTO,,Autor de prueba,2010,1,400,titulo
+Autor vacío,AUTO,Título de prueba,,2010,1,400,autor
+Año anterior a 1450,AUTO,Incunable,Autor de prueba,1400,1,400,anio
+Año futuro,AUTO,Libro del futuro,Autor de prueba,2100,1,400,anio
+Ejemplares negativos,AUTO,Título de prueba,Autor de prueba,2010,-1,400,ejemplares
